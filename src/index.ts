@@ -21,8 +21,8 @@ import { logger } from './utils/logger';
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY!;
 
-/** WebSocket port the game client connects to. */
-const WS_PORT = 8765;
+/** WebSocket port the game client connects to. Falls back to 8765 for local dev. */
+const WS_PORT = parseInt(process.env.PORT ?? '8765', 10);
 
 /** How often the decision loop runs (ms). Lower = more responsive AI. */
 const DECISION_TICK_MS = 100;
