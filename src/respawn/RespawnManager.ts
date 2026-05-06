@@ -10,10 +10,10 @@
 //      aliveCount = 3 → 12 s  (plenty of allies — reinforcements slower)
 //  • tick() is called every 100 ms; it emits SpawnMessage[] for any entries
 //    whose timer has fired.
-//  • Spawn positions are chosen at a natural distance from the player (4–8
-//    units) so barbarians reach the player within 1–2 seconds at MOVE_SPEED=3.
-//    Multiple barbarians are spread across 8 angular slots (45° apart) so they
-//    never overlap.
+//  • Spawn positions are chosen randomly along the grass path X axis (minX–maxX)
+//    at a minimum distance from the player so they don't spawn on top of them.
+//  • A proactive check ensures alive + queued barbarians never fall below
+//    targetBarbarianCount — if they do, an extra entry is inserted immediately.
 //  • Each spawn gets a fresh unique ID so it is treated as a new component
 //    on the client.
 // ---------------------------------------------------------------------------
@@ -26,14 +26,6 @@ import { logger } from '../utils/logger';
 const MIN_DELAY_MS = 3000;
 /** Additional delay added per living barbarian at the time of death. */
 const PER_ALIVE_DELAY_MS = 3000;
-/** Minimum spawn distance from the player (units). At MOVE_SPEED=3 → ~1.3 s. */
-const MIN_SPAWN_DIST = 4;
-/** Maximum spawn distance from the player (units). At MOVE_SPEED=3 → ~2.7 s. */
-const MAX_SPAWN_DIST = 8;
-/** Number of angular slots evenly spaced around the player (45° apart). */
-const ANGLE_SLOTS = 8;
-/** How many recent spawn angles to remember (to avoid reusing the same slot). */
-const RECENT_ANGLE_MEMORY = 4;
 /** Delay between simultaneous spawns so they don't land at the same position. */
 const STAGGER_MS = 1500;
 
@@ -49,7 +41,6 @@ interface DeadEntry {
 export class RespawnManager {
   private queue: DeadEntry[] = [];
   private counter = 0;
-  private recentAngles: number[] = [];
 
   // ---------------------------------------------------------------------------
   // Called by MessageHandler when a BARBARIAN_DIED message arrives.
@@ -75,7 +66,7 @@ export class RespawnManager {
   // Returns any SpawnMessages that are ready to be sent to the client.
   // ---------------------------------------------------------------------------
 
-  tick(environment: EnvironmentState, playerPosition: Vector3): SpawnMessage[] {
+  tick(environment: EnvironmentState, playerPosition: Vector3, aliveCount: number): SpawnMessage[] {
     const now = Date.now();
     const ready: DeadEntry[] = [];
     const remaining: DeadEntry[] = [];
@@ -86,6 +77,18 @@ export class RespawnManager {
       } else {
         remaining.push(entry);
       }
+    }
+
+    // Proactive: if alive + queued < target, add an extra entry immediately.
+    const target = environment.targetBarbarianCount ?? 1;
+    const totalAccountedFor = aliveCount + remaining.length + ready.length;
+    if (totalAccountedFor < target) {
+      ready.push({
+        originalId: 'proactive',
+        respawnId: `barbarian-r${++this.counter}`,
+        diedAt: now,
+        respawnAt: now,
+      });
     }
 
     // Only spawn one per tick; stagger the rest so each gets a distinct position.
@@ -129,72 +132,20 @@ export class RespawnManager {
   }
 
   /**
-   * Choose a spawn position at a natural distance from the player so the
-   * barbarian can close the gap within 1–2 seconds of game time.
-   * The angle is picked from 8 evenly-spaced slots (45° apart) to ensure
-   * multiple barbarians spawn at distinct positions without overlapping.
+   * Choose a spawn position 12–20 units left or right of the player along the
+   * X axis (Z = 0), clamped to the grass path bounds.  This keeps barbarians
+   * just off-screen so the player can see them approach.
    */
   private getSpawnPosition(env: EnvironmentState, playerPos: Vector3): Vector3 {
-    const angle = this.pickSpawnAngle();
-    const dist =
-      MIN_SPAWN_DIST + Math.random() * (MAX_SPAWN_DIST - MIN_SPAWN_DIST);
-
-    const rawX = playerPos.x + Math.cos(angle) * dist;
-    const rawZ = playerPos.z + Math.sin(angle) * dist;
-
-    // Clamp to world bounds so spawns never fall off the arena.
+    const MIN_DIST = 8;
+    const MAX_DIST = 15;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const dist = MIN_DIST + Math.random() * (MAX_DIST - MIN_DIST);
     const x = Math.max(
       env.worldBounds.minX,
-      Math.min(env.worldBounds.maxX, rawX),
+      Math.min(env.worldBounds.maxX, playerPos.x + side * dist),
     );
-    const z = Math.max(
-      env.worldBounds.minZ,
-      Math.min(env.worldBounds.maxZ, rawZ),
-    );
-
-    return {
-      x,
-      y: env.groundY + 0.9, // standard character body offset above ground
-      z,
-    };
-  }
-
-  /**
-   * Pick the angular slot (in radians) that is farthest from recently used
-   * slots so consecutive spawns land at different positions around the player.
-   */
-  private pickSpawnAngle(): number {
-    const step = (2 * Math.PI) / ANGLE_SLOTS;
-    const candidates: number[] = Array.from(
-      { length: ANGLE_SLOTS },
-      (_, i) => step * i,
-    );
-
-    let best = candidates[0];
-    let bestScore = -Infinity;
-
-    for (const angle of candidates) {
-      const distFromRecent =
-        this.recentAngles.length === 0
-          ? Infinity
-          : Math.min(
-              ...this.recentAngles.map((ra) => {
-                const diff = Math.abs(angle - ra) % (2 * Math.PI);
-                return Math.min(diff, 2 * Math.PI - diff);
-              }),
-            );
-      if (distFromRecent > bestScore) {
-        bestScore = distFromRecent;
-        best = angle;
-      }
-    }
-
-    this.recentAngles.push(best);
-    if (this.recentAngles.length > RECENT_ANGLE_MEMORY) {
-      this.recentAngles.shift();
-    }
-
-    return best;
+    return { x, y: env.groundY + 0.9, z: 0 };
   }
 
   /**
