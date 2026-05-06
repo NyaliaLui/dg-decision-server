@@ -28,14 +28,13 @@ const STRATEGY_INTERVAL_MS = 2000;
 const VALID_STRATEGIES = new Set<SquadStrategy>([
   'AGGRESSIVE',
   'COORDINATED',
-  'BAIT_HEAVY',
   'DEFENSIVE',
   'OVERWHELM',
+  'RUSH',
 ]);
 
 interface ClaudeResponse {
   strategy: string;
-  claudeSuggestsBait: boolean;
   reasoning: string;
 }
 
@@ -110,7 +109,6 @@ export class ClaudeAI {
       if (!strategy) return;
 
       const insights: ClaudeInsights = {
-        claudeSuggestsBait: Boolean(parsed.claudeSuggestsBait),
         reasoning: parsed.reasoning ?? '',
         generatedAt: Date.now(),
       };
@@ -119,7 +117,7 @@ export class ClaudeAI {
       gsm.setClaudeInsights(insights);
 
       logger.info(
-        `ClaudeAI → strategy: ${strategy}, bait: ${insights.claudeSuggestsBait} — "${insights.reasoning}"`,
+        `ClaudeAI → strategy: ${strategy} — "${insights.reasoning}"`,
       );
     } catch (err) {
       // Network errors, rate limits, etc. Log and preserve current strategy.
