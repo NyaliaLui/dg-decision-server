@@ -67,7 +67,8 @@ function main(): void {
     }
 
     // 3. Check respawn queue and emit any ready SPAWN messages.
-    const spawns = respawn.tick(state.environment, state.player.position);
+    const aliveCount = state.barbarians?.length ?? 0;
+    const spawns = respawn.tick(state.environment, state.player.position, aliveCount);
     for (const spawnMsg of spawns) {
       wss.broadcast(spawnMsg);
     }
