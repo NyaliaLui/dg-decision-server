@@ -31,27 +31,22 @@ JSON object, no markdown code fences.
 OUTPUT FORMAT (respond with this exact JSON structure, nothing else):
 {
   "strategy": "<STRATEGY_NAME>",
-  "claudeSuggestsBait": <true|false>,
   "reasoning": "<one sentence — 20 words max>"
 }
 
 VALID STRATEGY NAMES:
   AGGRESSIVE   — All warriors close in and attack without hesitation.
-  COORDINATED  — Assign distinct roles: one attacker, one flanker. Balanced default.
-  BAIT_HEAVY   — At least one warrior always baiting. Best vs. aggressive players.
-  DEFENSIVE    — Wounded warriors retreat; only healthy ones engage.
+  COORDINATED  — One primary attacker leads; others follow coordinated approach.
+  DEFENSIVE    — Wounded warriors hold back; only healthy ones engage.
   OVERWHELM    — All warriors converge simultaneously, timed to player special attack.
-
-WHEN TO SET claudeSuggestsBait = true:
-  - The player attacks frequently (aggressive pattern).
-  - At least one barbarian has HP > 1 to spare as bait.
-  - BAIT_HEAVY strategy is chosen.
+  RUSH         — All barbarians spawn and immediately rush the player — chase relentlessly, attack on contact.
 
 TACTICAL GUIDELINES:
-  - BAIT_HEAVY punishes players who attack impulsively.
+  - RUSH is the default — relentless pressure with no hesitation.
   - AGGRESSIVE breaks through passive, defensive players.
   - OVERWHELM is high-risk: only use when player.isAttacking = true (special attack) so they cannot cancel.
   - DEFENSIVE preserves warriors long enough for reinforcements to spawn.
+  - COORDINATED provides balanced pressure with a primary attacker leading.
   - If the player's HP trend is "falling", current strategy is working — maintain or escalate.
   - If the player's HP trend is "rising", current strategy is failing — switch.
 `;

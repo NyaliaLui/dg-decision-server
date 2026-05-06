@@ -88,6 +88,7 @@ export interface EnvironmentState {
   worldBounds: WorldBounds;
   /** Y coordinate of the ground surface. Characters rest at groundY + body offset. */
   groundY: number;
+  targetBarbarianCount: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,8 +116,6 @@ export type GameStateHistory = GameState[];
 // ---------------------------------------------------------------------------
 
 export interface ClaudeInsights {
-  /** Whether Claude currently wants a BAITER to be active. */
-  claudeSuggestsBait: boolean;
   /** Short reasoning string for debug logging. */
   reasoning: string;
   /** Unix ms timestamp when this insight was generated. */
